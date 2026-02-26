@@ -21,16 +21,16 @@ object cleaningStep {
     println(s"[COUNT] Step2 (dropDuplicates ride_id): ${step2.count()}")
 
     val step3 = step2
-      .withColumn("started_ts", to_timestamp(col("started_at")))
-      .withColumn("ended_ts", to_timestamp(col("ended_at")))
-    println(s"[COUNT] Step3 (added timestamps cols): ${step3.count()}")
+      .withColumn("started_at", to_timestamp(col("started_at")))
+      .withColumn("ended_at", to_timestamp(col("ended_at")))
+    println(s"[COUNT] Step3 (converted started_at/ended_at to timestamp): ${step3.count()}")
 
-    val step4 = step3.na.drop(Seq("started_ts", "ended_ts"))
-    println(s"[COUNT] Step4 (drop null started_ts/ended_ts): ${step4.count()}")
+    val step4 = step3.na.drop(Seq("started_at", "ended_at"))
+    println(s"[COUNT] Step4 (drop null started_at/ended_at): ${step4.count()}")
 
     val step5 = step4.withColumn(
       "trip_duration_min",
-      (unix_timestamp(col("ended_ts")) - unix_timestamp(col("started_ts"))) / 60.0
+      (unix_timestamp(col("ended_at")) - unix_timestamp(col("started_at"))) / 60.0
     )
     println(s"[COUNT] Step5 (added duration col): ${step5.count()}")
 
