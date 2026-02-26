@@ -47,42 +47,42 @@ object DataPreprocessing {
   // -----------------------------------
   def cleanData(df: DataFrame): DataFrame = {
 
-    val criticalCols = Seq(
-      "ride_id", "started_at", "ended_at",
-      "start_station_name", "end_station_name",
-      "member_casual"
-    )
-    val step1 = df.na.drop(criticalCols)
-    println(s"[COUNT] Clean-Step1 (drop null critical cols): ${step1.count()}")
+  val criticalCols = Seq(
+    "ride_id", "started_at", "ended_at",
+    "start_station_name", "end_station_name",
+    "member_casual"
+  )
+  val step1 = df.na.drop(criticalCols)
+  println(s"[COUNT] Clean-Step1 (drop null critical cols): ${step1.count()}")
 
-    val step2 = step1.dropDuplicates("ride_id")
-    println(s"[COUNT] Clean-Step2 (dropDuplicates ride_id): ${step2.count()}")
+  val step2 = step1.dropDuplicates("ride_id")
+  println(s"[COUNT] Clean-Step2 (dropDuplicates ride_id): ${step2.count()}")
 
-    val step3 = step2
-      .withColumn("started_ts", to_timestamp(col("started_at")))
-      .withColumn("ended_ts", to_timestamp(col("ended_at")))
-    println(s"[COUNT] Clean-Step3 (added timestamps cols): ${step3.count()}")
+  val step3 = step2
+    .withColumn("started_at", to_timestamp(col("started_at")))
+    .withColumn("ended_at", to_timestamp(col("ended_at")))
+  println(s"[COUNT] Clean-Step3 (convert started_at/ended_at to timestamp): ${step3.count()}")
 
-    val step4 = step3.na.drop(Seq("started_ts", "ended_ts"))
-    println(s"[COUNT] Clean-Step4 (drop null started_ts/ended_ts): ${step4.count()}")
+  val step4 = step3.na.drop(Seq("started_at", "ended_at"))
+  println(s"[COUNT] Clean-Step4 (drop null started_at/ended_at): ${step4.count()}")
 
-    val step5 = step4.withColumn(
-      "trip_duration_min",
-      (unix_timestamp(col("ended_ts")) - unix_timestamp(col("started_ts"))) / 60.0
-    )
-    println(s"[COUNT] Clean-Step5 (added duration col): ${step5.count()}")
+  val step5 = step4.withColumn(
+    "trip_duration_min",
+    (unix_timestamp(col("ended_at")) - unix_timestamp(col("started_at"))) / 60.0
+  )
+  println(s"[COUNT] Clean-Step5 (added duration col): ${step5.count()}")
 
-    val step6 = step5.filter(col("trip_duration_min") > 0 && col("trip_duration_min") < 1440)
-    println(s"[COUNT] Clean-Step6 (filter duration 0..1440): ${step6.count()}")
+  val step6 = step5.filter(col("trip_duration_min") > 0 && col("trip_duration_min") < 1440)
+  println(s"[COUNT] Clean-Step6 (filter duration 0..1440): ${step6.count()}")
 
-    val cleanDF = step6
-      .withColumn("start_station_name", trim(col("start_station_name")))
-      .withColumn("end_station_name", trim(col("end_station_name")))
-      .withColumn("member_casual", lower(trim(col("member_casual"))))
+  val cleanDF = step6
+    .withColumn("start_station_name", trim(col("start_station_name")))
+    .withColumn("end_station_name", trim(col("end_station_name")))
+    .withColumn("member_casual", lower(trim(col("member_casual"))))
 
-    println(s"[COUNT] Clean-Final cleanedDF: ${cleanDF.count()}")
-    cleanDF
-  }
+  println(s"[COUNT] Clean-Final cleanedDF: ${cleanDF.count()}")
+  cleanDF
+}
 
   // -----------------------------------
   // Helper: cast schema after reading cleanedData.csv (timestamps/double)
@@ -90,15 +90,15 @@ object DataPreprocessing {
   // so we must cast back before reduction.
   // -----------------------------------
   def castCleanedFromCsv(df: DataFrame): DataFrame = {
-    df
-      .withColumn("started_ts", to_timestamp(col("started_ts")))
-      .withColumn("ended_ts", to_timestamp(col("ended_ts")))
-      .withColumn("trip_duration_min", col("trip_duration_min").cast("double"))
-      .withColumn("start_station_name", trim(col("start_station_name")))
-      .withColumn("end_station_name", trim(col("end_station_name")))
-      .withColumn("member_casual", lower(trim(col("member_casual"))))
-  }
-
+  df
+    .withColumn("started_at", to_timestamp(col("started_at")))
+    .withColumn("ended_at", to_timestamp(col("ended_at")))
+    .withColumn("trip_duration_min", col("trip_duration_min").cast("double"))
+    .withColumn("start_station_name", trim(col("start_station_name")))
+    .withColumn("end_station_name", trim(col("end_station_name")))
+    .withColumn("member_casual", lower(trim(col("member_casual"))))
+}
+  
   def main(args: Array[String]): Unit = {
 
     implicit val spark: SparkSession = SparkSession.builder()
@@ -218,15 +218,15 @@ object DataPreprocessing {
     println(s"[COUNT] Reduce-Input (cleanedData.csv rows after cast): $c0")
 
     val filtered = cleanedFromFile
-      .filter(col("started_ts").isNotNull)
-      .filter(col("started_ts") >= lit("2025-10-01") && col("started_ts") < lit("2026-01-01"))
+  .filter(col("started_at").isNotNull)
+  .filter(col("started_at") >= lit("2025-10-01") && col("started_at") < lit("2026-01-01"))
 
     val c0b = filtered.count()
     println(s"[COUNT] Reduce-(0.1) After filtering Oct/Nov/Dec 2025: $c0b (removed ${c0 - c0b})")
 
     val withStrata = filtered
-      .withColumn("year", year(col("started_ts")))
-      .withColumn("month", month(col("started_ts")))
+      .withColumn("year", year(col("started_at")))
+      .withColumn("month", month(col("started_at")))
       .withColumn("year_month", concat_ws("-", col("year"), lpad(col("month").cast("string"), 2, "0")))
 
     println("[INFO] Reduce-(0.2) Distribution by year_month BEFORE sampling:")
@@ -247,14 +247,14 @@ object DataPreprocessing {
       col("start_station_name"),
       col("end_station_name"),
       col("member_casual"),
-      col("started_ts"),
+      col("started_at"),
       col("trip_duration_min")
     )
     println(s"[COUNT] Reduce-(2) After Feature Selection rows: ${selected.count()}")
     println(s"[INFO]  Reduce-(2) Columns: ${selected.columns.mkString(", ")}")
 
     val reduced = selected
-      .withColumn("hour_bucket", date_trunc("hour", col("started_ts")))
+      .withColumn("hour_bucket", date_trunc("hour", col("started_at")))
       .groupBy("hour_bucket", "start_station_name", "end_station_name", "member_casual")
       .agg(
         sum(when(col("rideable_type") === "classic_bike", 1).otherwise(0)).alias("classic_trips"),
