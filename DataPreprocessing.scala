@@ -1,4 +1,4 @@
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -47,24 +47,110 @@ object DataPreprocessing {
   // -----------------------------------
   def cleanData(df: DataFrame): DataFrame = {
 
-  val criticalCols = Seq(
-    "ride_id", "started_at", "ended_at",
+  def parseTimestamp(c: Column): Column = {
+    coalesce(
+      to_timestamp(c, "yyyy-MM-dd HH:mm:ss"),
+      to_timestamp(c, "yyyy-MM-dd HH:mm:ss.SSS"),
+      to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ss.SSSX"),
+      to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ssX"),
+      to_timestamp(c)
+    )
+  }
+
+  def printNullReport(df: DataFrame, cols: Seq[String], label: String): Unit = {
+    val exprs = cols.map { c =>
+      sum(
+        when(col(c).isNull, 1).otherwise(0)
+      ).alias(c)
+    }
+    val row = df.select(exprs: _*).collect()(0)
+    val total = df.count()
+
+    println(s"[NULL-REPORT] $label (rows=$total)")
+    cols.zipWithIndex.foreach { case (c, i) =>
+      val n = row.getLong(i)
+      val p = if (total == 0) 0.0 else (n.toDouble / total.toDouble) * 100.0
+      println(f"  - $c: $n nulls ($p%.4f%%)")
+    }
+  }
+
+  val criticalColsDrop = Seq(
+    "ride_id",
+    "start_station_name", "end_station_name",
+    "started_at", "ended_at"
+  )
+
+  // (0) Basic null report on columns that must remain usable after cleaning
+  val reportCols = Seq(
+    "ride_id", "rideable_type",
+    "started_at", "ended_at",
     "start_station_name", "end_station_name",
     "member_casual"
-  )
-  val step1 = df.na.drop(criticalCols)
-  println(s"[COUNT] Clean-Step1 (drop null critical cols): ${step1.count()}")
+  ).filter(df.columns.contains)
 
-  val step2 = step1.dropDuplicates("ride_id")
+  printNullReport(df, reportCols, "Clean-Step0 BEFORE any cleaning")
+
+  val step1 = df.na.drop(criticalColsDrop)
+  println(s"[COUNT] Clean-Step1 (drop null essential cols): ${step1.count()}")
+
+  // Standardize text early (so mode calculation is consistent)
+  val step1b = step1
+    .withColumn("start_station_name", trim(col("start_station_name")))
+    .withColumn("end_station_name", trim(col("end_station_name")))
+    .withColumn("member_casual", lower(trim(col("member_casual"))))
+
+  // (1.1) Impute member_casual nulls with mode (member/casual)
+  val mcCol = "member_casual"
+  val mcNullsBefore = step1b.filter(col(mcCol).isNull).count()
+  println(s"[COUNT] Clean-Step1.1 (member_casual nulls BEFORE imputation): $mcNullsBefore")
+
+  val mcModeOpt = step1b
+    .filter(col(mcCol).isNotNull)
+    .groupBy(col(mcCol))
+    .count()
+    .orderBy(desc("count"))
+    .limit(1)
+    .collect()
+    .headOption
+    .map(_.getString(0))
+
+  val step1c = mcModeOpt match {
+    case Some(modeVal) =>
+      val tmp = step1b.na.fill(Map(mcCol -> modeVal))
+      val mcNullsAfter = tmp.filter(col(mcCol).isNull).count()
+      println(s"[COUNT] Clean-Step1.2 (member_casual nulls AFTER imputation): $mcNullsAfter (mode='$modeVal')")
+      tmp
+    case None =>
+      println("[INFO] Clean-Step1.2 (member_casual mode not found; dataset may be empty after Step1)")
+      step1b
+  }
+
+  val step2 = step1c.dropDuplicates("ride_id")
   println(s"[COUNT] Clean-Step2 (dropDuplicates ride_id): ${step2.count()}")
 
+  // (3) Convert timestamps with explicit formats (avoid unexpected nulls after conversion)
   val step3 = step2
-    .withColumn("started_at", to_timestamp(col("started_at")))
-    .withColumn("ended_at", to_timestamp(col("ended_at")))
+    .withColumn("started_at_raw", col("started_at"))
+    .withColumn("ended_at_raw", col("ended_at"))
+    .withColumn("started_at", parseTimestamp(col("started_at")))
+    .withColumn("ended_at", parseTimestamp(col("ended_at")))
+
   println(s"[COUNT] Clean-Step3 (convert started_at/ended_at to timestamp): ${step3.count()}")
 
+  val parseCheck = step3.select(
+    sum(when(col("started_at").isNull, 1).otherwise(0)).alias("started_at_nulls_after_parse"),
+    sum(when(col("ended_at").isNull, 1).otherwise(0)).alias("ended_at_nulls_after_parse")
+  ).collect()(0)
+
+  val startedNullsAfterParse = parseCheck.getLong(0)
+  val endedNullsAfterParse = parseCheck.getLong(1)
+  println(s"[COUNT] Clean-Step3.1 (started_at nulls AFTER parse): $startedNullsAfterParse")
+  println(s"[COUNT] Clean-Step3.2 (ended_at nulls AFTER parse): $endedNullsAfterParse")
+
   val step4 = step3.na.drop(Seq("started_at", "ended_at"))
-  println(s"[COUNT] Clean-Step4 (drop null started_at/ended_at): ${step4.count()}")
+    .drop("started_at_raw", "ended_at_raw")
+
+  println(s"[COUNT] Clean-Step4 (drop null started_at/ended_at after parsing): ${step4.count()}")
 
   val step5 = step4.withColumn(
     "trip_duration_min",
@@ -80,6 +166,8 @@ object DataPreprocessing {
     .withColumn("end_station_name", trim(col("end_station_name")))
     .withColumn("member_casual", lower(trim(col("member_casual"))))
 
+  printNullReport(cleanDF, reportCols.filter(cleanDF.columns.contains), "Clean-Final AFTER cleaning")
+
   println(s"[COUNT] Clean-Final cleanedDF: ${cleanDF.count()}")
   cleanDF
 }
@@ -90,9 +178,20 @@ object DataPreprocessing {
   // so we must cast back before reduction.
   // -----------------------------------
   def castCleanedFromCsv(df: DataFrame): DataFrame = {
+
+  def parseTimestamp(c: Column): Column = {
+    coalesce(
+      to_timestamp(c, "yyyy-MM-dd HH:mm:ss"),
+      to_timestamp(c, "yyyy-MM-dd HH:mm:ss.SSS"),
+      to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ss.SSSX"),
+      to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ssX"),
+      to_timestamp(c)
+    )
+  }
+
   df
-    .withColumn("started_at", to_timestamp(col("started_at")))
-    .withColumn("ended_at", to_timestamp(col("ended_at")))
+    .withColumn("started_at", parseTimestamp(col("started_at")))
+    .withColumn("ended_at", parseTimestamp(col("ended_at")))
     .withColumn("trip_duration_min", col("trip_duration_min").cast("double"))
     .withColumn("start_station_name", trim(col("start_station_name")))
     .withColumn("end_station_name", trim(col("end_station_name")))
