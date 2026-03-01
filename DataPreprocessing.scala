@@ -49,8 +49,8 @@ object DataPreprocessing {
 
   def parseTimestamp(c: Column): Column = {
     coalesce(
-      to_timestamp(c, "yyyy-MM-dd HH:mm:ss"),
       to_timestamp(c, "yyyy-MM-dd HH:mm:ss.SSS"),
+      to_timestamp(c, "yyyy-MM-dd HH:mm:ss"),
       to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ss.SSSX"),
       to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ssX"),
       to_timestamp(c)
@@ -181,8 +181,8 @@ object DataPreprocessing {
 
   def parseTimestamp(c: Column): Column = {
     coalesce(
-      to_timestamp(c, "yyyy-MM-dd HH:mm:ss"),
       to_timestamp(c, "yyyy-MM-dd HH:mm:ss.SSS"),
+      to_timestamp(c, "yyyy-MM-dd HH:mm:ss"),
       to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ss.SSSX"),
       to_timestamp(c, "yyyy-MM-dd'T'HH:mm:ssX"),
       to_timestamp(c)
@@ -207,6 +207,7 @@ object DataPreprocessing {
 
     spark.sparkContext.setLogLevel("WARN")
     spark.conf.set("spark.sql.shuffle.partitions", "200")
+    spark.conf.set("spark.sql.legacy.timeParserPolicy", "CORRECTED")
 
     // ---------------------------
     // Raw schema (input files)
