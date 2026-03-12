@@ -313,6 +313,190 @@ object RDDOperations {
           )
       }
     }
+
+    // ============================================================
+    // MEMBER VS CASUAL BEHAVIOR ANALYSIS
+    // ============================================================
+
+    // ============================================================
+    // Transformation 5
+    // Build rider-type demand summary:
+    // map -> aggregateByKey -> map
+    // ============================================================
+    println("\n==================== Transformation 5 ====================")
+    println("Build rider-type demand summary by mapping records, aggregating totals, and computing average duration")
+
+    val riderTypeSummary = baseRDD
+      .map { record =>
+        val totalTrips = record.classicTrips + record.electricTrips
+        (
+          record.userType.toLowerCase,
+          (
+            totalTrips,                          // total trips
+            record.classicTrips,                // classic trips
+            record.electricTrips,               // electric trips
+            record.avgDurationMin * totalTrips, // weighted duration sum
+            totalTrips                          // trip count for averaging
+          )
+        )
+      }
+      .aggregateByKey((0, 0, 0, 0.0, 0))(
+        (acc, value) => (
+          acc._1 + value._1,
+          acc._2 + value._2,
+          acc._3 + value._3,
+          acc._4 + value._4,
+          acc._5 + value._5
+        ),
+        (a, b) => (
+          a._1 + b._1,
+          a._2 + b._2,
+          a._3 + b._3,
+          a._4 + b._4,
+          a._5 + b._5
+        )
+      )
+      .map { case (userType, (totalTrips, classicTrips, electricTrips, weightedDurationSum, tripCount)) =>
+        val avgDuration =
+          if (tripCount == 0) 0.0 else weightedDurationSum / tripCount.toDouble
+
+        (userType, (totalTrips, classicTrips, electricTrips, avgDuration))
+      }
+
+    // ============================================================
+    // Action 5
+    // Count rider segments and print demand summary
+    // ============================================================
+    println("\n======================= Action 5 =========================")
+    println("Count rider segments and print total demand, bike-type demand, and average trip duration for each rider type")
+
+    val riderSegmentCount = riderTypeSummary.count()
+    println(s"Action 5 Output -> Number of rider segments found = $riderSegmentCount")
+
+    riderTypeSummary.foreach {
+      case (userType, (totalTrips, classicTrips, electricTrips, avgDuration)) =>
+        println(
+          f"$userType%-10s -> Total Trips = $totalTrips%-8d | Classic = $classicTrips%-8d | Electric = $electricTrips%-8d | Avg Duration = $avgDuration%.2f min"
+        )
+    }
+
+    println("\nInterpretation:")
+    println("- Higher total trips indicate which rider segment contributes more overall demand.")
+    println("- Higher electric trips suggest stronger dependence on electric bikes.")
+    println("- Longer average duration may indicate more leisure-oriented usage.")
+
+    // ============================================================
+    // Transformation 7
+    // Build weekend vs weekday demand by rider type:
+    // map -> aggregateByKey -> map -> sortByKey
+    // ============================================================
+    println("\n==================== Transformation 6 ====================")
+    println("Build weekend and weekday demand by rider type by mapping trip totals, aggregating them, and sorting by weekend demand share")
+
+    val weekendWeekdayByRider = baseRDD
+      .map { record =>
+        val totalTrips = record.classicTrips + record.electricTrips
+
+        val weekendTrips =
+          if (record.isWeekend == 1) totalTrips else 0
+
+        val weekdayTrips =
+          if (record.isWeekend == 0) totalTrips else 0
+
+        (record.userType.toLowerCase, (weekendTrips, weekdayTrips))
+      }
+      .aggregateByKey((0, 0))(
+        (acc, value) => (acc._1 + value._1, acc._2 + value._2),
+        (a, b) => (a._1 + b._1, a._2 + b._2)
+      )
+      .map { case (userType, (weekendTrips, weekdayTrips)) =>
+        val total = weekendTrips + weekdayTrips
+        val weekendShare =
+          if (total == 0) 0.0 else weekendTrips.toDouble / total.toDouble
+
+        (weekendShare, (userType, weekendTrips, weekdayTrips))
+      }
+      .sortByKey(ascending = false)
+
+    // ============================================================
+    // Action 7
+    // Identify which rider type is more weekend-oriented
+    // ============================================================
+    println("\n======================= Action 6 =========================")
+    println("Use take(1) to identify the rider type with the highest weekend demand share")
+
+    val mostWeekendOriented = weekendWeekdayByRider.take(1)
+
+    println("Action 7 Output -> Weekend vs weekday demand by rider type:")
+    weekendWeekdayByRider.foreach {
+      case (weekendShare, (userType, weekendTrips, weekdayTrips)) =>
+        println(
+          f"$userType%-10s -> Weekend Trips = $weekendTrips%-8d | Weekday Trips = $weekdayTrips%-8d | Weekend Share = ${weekendShare * 100}%.2f%%"
+        )
+    }
+
+    if (mostWeekendOriented.nonEmpty) {
+      val (weekendShare, (userType, _, _)) = mostWeekendOriented(0)
+      println(
+        f"\nMost Weekend-Oriented Rider Type -> $userType with Weekend Share = ${weekendShare * 100}%.2f%%"
+      )
+    }
+
+    println("\nInterpretation:")
+    println("- A higher weekend share suggests more leisure or flexible-use behavior.")
+    println("- A lower weekend share suggests stronger weekday dependence, often linked to routine travel or commuting.")
+
+
+    // ============================================================
+    // Transformation 8
+    // Build electric-bike preference by rider type:
+    // map -> aggregateByKey -> map
+    // ============================================================
+    println("\n==================== Transformation 7 ====================")
+    println("Build electric-bike preference by rider type by aggregating electric and total trips, then computing electric usage share")
+
+    val electricPreferenceByRider = baseRDD
+      .map { record =>
+        val totalTrips = record.classicTrips + record.electricTrips
+        (record.userType.toLowerCase, (record.electricTrips, totalTrips))
+      }
+      .aggregateByKey((0, 0))(
+        (acc, value) => (acc._1 + value._1, acc._2 + value._2),
+        (a, b) => (a._1 + b._1, a._2 + b._2)
+      )
+      .map { case (userType, (electricTrips, totalTrips)) =>
+        val electricShare =
+          if (totalTrips == 0) 0.0 else electricTrips.toDouble / totalTrips.toDouble
+
+        (userType, electricTrips, totalTrips, electricShare)
+      }
+
+    // ============================================================
+    // Action 8
+    // Rank rider types by electric-bike usage share
+    // ============================================================
+    println("\n======================= Action 7 =========================")
+    println("Use takeOrdered to rank rider types by electric-bike usage share")
+
+    val electricPreferenceRanking = electricPreferenceByRider
+      .map { case (userType, electricTrips, totalTrips, electricShare) =>
+        (-electricShare, userType, electricTrips, totalTrips)
+      }
+      .takeOrdered(2)
+
+    println("Action 8 Output -> Rider types ranked by electric-bike usage share:")
+    electricPreferenceRanking.zipWithIndex.foreach {
+      case ((negativeShare, userType, electricTrips, totalTrips), index) =>
+        val electricShare = -negativeShare * 100.0
+        println(
+          f"${index + 1}) $userType%-10s -> Electric Trips = $electricTrips%-8d | Total Trips = $totalTrips%-8d | Electric Share = $electricShare%.2f%%"
+        )
+    }
+
+    println("\nInterpretation:")
+    println("- Higher electric-bike share means that rider group relies more on electric bikes.")
+    println("- This is useful for understanding resource preference and supporting bike-type allocation decisions.")
+
     spark.stop()
   }
 }
