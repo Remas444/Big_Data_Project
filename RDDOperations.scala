@@ -524,6 +524,159 @@ object RDDOperations {
     println("- Higher electric-bike share means that rider group relies more on electric bikes.")
     println("- This is useful for understanding resource preference and supporting bike-type allocation decisions.")
 
+        // ============================================================
+    // STATION USAGE ANALYSIS
+    // ============================================================
+
+    // ============================================================
+    // Transformation 8
+    // Build start-station demand:
+    // filter -> map -> reduceByKey -> sortBy
+    // ============================================================
+    println("\n==================== Transformation 8 ====================")
+    println("Build start-station demand by filtering valid station names, mapping records to (startStation, totalTrips), aggregating them, and sorting by total demand")
+
+    val startStationDemandSorted = baseRDD
+      .filter { record =>
+        record.startStation != null &&
+        record.startStation.nonEmpty &&
+        record.startStation.toLowerCase != "unknown"
+      }
+      .map { record =>
+        val totalTrips = record.classicTrips + record.electricTrips
+        (record.startStation, totalTrips)
+      }
+      .reduceByKey(_ + _)
+      .sortBy({ case (_, totalTrips) => totalTrips }, ascending = false)
+
+    // ============================================================
+    // Action 8
+    // Show top 10 most-used start stations
+    // ============================================================
+    println("\n======================= Action 8 =========================")
+    println("Take the top 10 most-used start stations by total trip volume")
+
+    val top10StartStations = startStationDemandSorted.take(10)
+
+    println("Action 8 Output -> Top 10 most-used start stations:")
+    top10StartStations.zipWithIndex.foreach {
+      case ((station, totalTrips), index) =>
+        println(f"${index + 1}) $station%-40s -> Total Trips = $totalTrips")
+    }
+
+    if (top10StartStations.nonEmpty) {
+      val (station, totalTrips) = top10StartStations.head
+      println(f"\nMost Used Start Station -> $station%-40s with Total Trips = $totalTrips")
+    }
+
+    println("\nInterpretation:")
+    println("- Higher trip counts at certain start stations indicate stronger origin demand at those locations.")
+    println("- These stations may represent major departure hubs that require greater bike availability.")
+
+
+    // ============================================================
+    // Transformation 9
+    // Build end-station demand:
+    // filter -> map -> reduceByKey -> sortBy
+    // ============================================================
+    println("\n==================== Transformation 9 ====================")
+    println("Build end-station demand by filtering valid station names, mapping records to (endStation, totalTrips), aggregating them, and sorting by total demand")
+
+    val endStationDemandSorted = baseRDD
+      .filter { record =>
+        record.endStation != null &&
+        record.endStation.nonEmpty &&
+        record.endStation.toLowerCase != "unknown"
+      }
+      .map { record =>
+        val totalTrips = record.classicTrips + record.electricTrips
+        (record.endStation, totalTrips)
+      }
+      .reduceByKey(_ + _)
+      .sortBy({ case (_, totalTrips) => totalTrips }, ascending = false)
+
+    // ============================================================
+    // Action 9
+    // Show top 10 most-used end stations
+    // ============================================================
+    println("\n======================= Action 9 =========================")
+    println("Take the top 10 most-used end stations by total trip volume")
+
+    val top10EndStations = endStationDemandSorted.take(10)
+
+    println("Action 9 Output -> Top 10 most-used end stations:")
+    top10EndStations.zipWithIndex.foreach {
+      case ((station, totalTrips), index) =>
+        println(f"${index + 1}) $station%-40s -> Total Trips = $totalTrips")
+    }
+
+    if (top10EndStations.nonEmpty) {
+      val (station, totalTrips) = top10EndStations.head
+      println(f"\nMost Used End Station -> $station%-40s with Total Trips = $totalTrips")
+    }
+
+    println("\nInterpretation:")
+    println("- Higher trip counts at certain end stations indicate stronger destination demand at those locations.")
+    println("- These stations may require more frequent bike rebalancing and dock management.")
+
+
+    // ============================================================
+    // Transformation 10
+    // Build route demand and station coverage:
+    // filter -> map -> reduceByKey -> sortBy
+    // and flatMap -> distinct
+    // ============================================================
+    println("\n==================== Transformation 10 ====================")
+    println("Build route demand by mapping valid start-end station pairs, aggregating total trips per route, sorting by total demand, and extracting distinct station names")
+
+    val routeDemandSorted = baseRDD
+      .filter { record =>
+        record.startStation != null &&
+        record.endStation != null &&
+        record.startStation.nonEmpty &&
+        record.endStation.nonEmpty &&
+        record.startStation.toLowerCase != "unknown" &&
+        record.endStation.toLowerCase != "unknown"
+      }
+      .map { record =>
+        val totalTrips = record.classicTrips + record.electricTrips
+        ((record.startStation, record.endStation), totalTrips)
+      }
+      .reduceByKey(_ + _)
+      .sortBy({ case (_, totalTrips) => totalTrips }, ascending = false)
+
+    val distinctStations = baseRDD
+      .flatMap { record => Seq(record.startStation, record.endStation) }
+      .filter(station => station != null && station.nonEmpty && station.toLowerCase != "unknown")
+      .distinct()
+
+    // ============================================================
+    // Action 10
+    // Show top 10 most frequent routes and count distinct stations
+    // ============================================================
+    println("\n======================= Action 10 =========================")
+    println("Take the top 10 most frequent routes and count the total number of distinct stations")
+
+    val top10Routes = routeDemandSorted.take(10)
+    val totalDistinctStations = distinctStations.count()
+
+    println("Action 10 Output -> Top 10 most frequent routes:")
+    top10Routes.zipWithIndex.foreach {
+      case (((startStation, endStation), totalTrips), index) =>
+        println(f"${index + 1}) $startStation%-30s -> $endStation%-30s | Total Trips = $totalTrips")
+    }
+
+    println(s"\nTotal Distinct Stations = $totalDistinctStations")
+
+    if (top10Routes.nonEmpty) {
+      val ((startStation, endStation), totalTrips) = top10Routes.head
+      println(f"Most Frequent Route -> $startStation%-30s -> $endStation%-30s | Total Trips = $totalTrips")
+    }
+
+    println("\nInterpretation:")
+    println("- Frequently repeated routes reveal strong mobility links between specific station pairs.")
+    println("- The number of distinct stations reflects the overall spatial coverage of the bike-sharing system.")
+    
     spark.stop()
   }
 }
