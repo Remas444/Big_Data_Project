@@ -158,6 +158,78 @@ object SQLOperations {
     println("============================================================")
     unstableHoursResult.show(10, false)
 
+    // Query 4: Most used start-to-end routes during peak hours
+    // Uses: CTE, GROUP BY, SUM aggregation, INNER JOIN, ORDER BY, LIMIT
+
+    val peakRoutesQuery =
+      """
+        |WITH peak_hours AS (
+        |  SELECT
+        |    hour,
+        |    SUM(classic_trips + electric_trips) AS total_hourly_demand
+        |  FROM trips
+        |  GROUP BY hour
+        |  ORDER BY total_hourly_demand DESC
+        |  LIMIT 3
+        |),
+        |route_demand_in_peak AS (
+        |  SELECT
+        |    t.start_station_name,
+        |    t.end_station_name,
+        |    SUM(t.classic_trips + t.electric_trips) AS total_route_demand
+        |  FROM trips t
+        |  INNER JOIN peak_hours p
+        |    ON t.hour = p.hour
+        |  GROUP BY t.start_station_name, t.end_station_name
+        |)
+        |SELECT
+        |  start_station_name,
+        |  end_station_name,
+        |  total_route_demand
+        |FROM route_demand_in_peak
+        |ORDER BY total_route_demand DESC
+        |LIMIT 10
+        |""".stripMargin
+
+    val peakRoutesResult = spark.sql(peakRoutesQuery)
+
+    println()
+    println("============================================================")
+    println("Most Used Start-to-End Routes During Peak Hours")
+    println("============================================================")
+    peakRoutesResult.show(10, false)
+
+    // Query 5: Trip-duration statistics by rider type
+    // Uses: GROUP BY, HAVING, SUM aggregation, COUNT DISTINCT, statistical summaries, ORDER BY
+
+    val riderTypeStatsQuery =
+      """
+        |SELECT
+        |  member_casual,
+        |  SUM(classic_trips + electric_trips) AS total_trips,
+        |  ROUND(
+        |    SUM(avg_duration_min * (classic_trips + electric_trips)) /
+        |    SUM(classic_trips + electric_trips),
+        |    2
+        |  ) AS weighted_avg_duration_min,
+        |  ROUND(MIN(avg_duration_min), 2) AS min_avg_duration_min,
+        |  ROUND(MAX(avg_duration_min), 2) AS max_avg_duration_min,
+        |  ROUND(PERCENTILE_APPROX(avg_duration_min, 0.5), 2) AS median_avg_duration_min,
+        |  COUNT(DISTINCT CONCAT(start_station_name, ' -> ', end_station_name)) AS distinct_routes
+        |FROM trips
+        |GROUP BY member_casual
+        |HAVING SUM(classic_trips + electric_trips) > 0
+        |ORDER BY total_trips DESC
+        |""".stripMargin
+
+    val riderTypeStatsResult = spark.sql(riderTypeStatsQuery)
+
+    println()
+    println("============================================================")
+    println("Trip-Duration Statistics by Rider Type")
+    println("============================================================")
+    riderTypeStatsResult.show(10, false)
+
     spark.stop()
   }
 }
