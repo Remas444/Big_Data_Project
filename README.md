@@ -29,7 +29,7 @@ Open a terminal and run:
 sbt --version
 ```
 
-If you get an error, install sbt from: https://www.scala-sbt.org/download.html
+If you get an error, install sbt from: https://www.scala-sbt.org/download/
 
 **Step 3 – Create a new sbt project**
 
