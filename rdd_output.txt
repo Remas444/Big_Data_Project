@@ -1,0 +1,170 @@
+============================================================
+IT462 - Big Data Systems
+Phase 3 - RDD Operations
+============================================================
+
+[INFO] Schema of transformedData.csv:
+root
+ |-- date: string (nullable = true)
+ |-- hour: integer (nullable = true)
+ |-- start_station_name: string (nullable = true)
+ |-- start_station_name_idx: integer (nullable = true)
+ |-- end_station_name: string (nullable = true)
+ |-- end_station_name_idx: integer (nullable = true)
+ |-- member_casual: string (nullable = true)
+ |-- member_casual_idx: integer (nullable = true)
+ |-- classic_trips: integer (nullable = true)
+ |-- electric_trips: integer (nullable = true)
+ |-- avg_duration_min: double (nullable = true)
+ |-- day_of_week: integer (nullable = true)
+ |-- is_weekend: integer (nullable = true)
+
+
+==================== Transformation 1 ====================
+Build hourly demand by mapping each record to (hour, totalTrips), aggregating by hour, and sorting by total demand
+
+======================= Action 1 =========================
+Take top 10 peak hours by total demand and identify the peak hour
+Action 1 Output -> Top 10 peak hours:
+Hour 17 -> Total Trips = 276627
+Hour 18 -> Total Trips = 251010
+Hour 16 -> Total Trips = 231450
+Hour 15 -> Total Trips = 209717
+Hour 08 -> Total Trips = 204420
+Hour 14 -> Total Trips = 191090
+Hour 19 -> Total Trips = 184542
+Hour 13 -> Total Trips = 176910
+Hour 12 -> Total Trips = 166876
+Hour 09 -> Total Trips = 166049
+
+Peak Hour -> Hour 17 with Total Trips = 276627
+
+==================== Transformation 2 ====================
+Build weekday and weekend hourly demand by mapping records to ((isWeekend, hour), totalTrips) and aggregating them
+
+======================= Action 2 =========================
+Collect weekday and weekend hourly demand, then display the top 5 ranked hours side by side
+Action 2 Output -> Top 5 weekend vs weekday ranked hourly demand
+
+Weekend                             | Weekday                            
+---------------------------------------------------------------------------
+Hour 13 -> Total Trips = 64472      | Hour 17 -> Total Trips = 220564    
+Hour 15 -> Total Trips = 63672      | Hour 18 -> Total Trips = 200270    
+Hour 14 -> Total Trips = 63326      | Hour 08 -> Total Trips = 181908    
+Hour 12 -> Total Trips = 62930      | Hour 16 -> Total Trips = 169427    
+Hour 16 -> Total Trips = 62023      | Hour 15 -> Total Trips = 146045    
+
+Top Weekend Hour -> Hour 13 with Total Trips = 64472
+Top Weekday Hour -> Hour 17 with Total Trips = 220564
+
+==================== Transformation 3 ====================
+Build day-of-week and hour demand by mapping records, aggregating by day and hour, then sorting within each day
+
+======================= Action 3 =========================
+Collect day-of-week and hour demand, then display the top 5 ranked hours within each day
+Action 3 Output -> Top 5 ranked hours within each day:
+
+Rank | Sun          | Mon          | Tue          | Wed          | Thu          | Fri          | Sat         
+--------------------------------------------------------------------------------------------------------------
+1    | 13(30586)    | 17(39220)    | 17(42722)    | 17(51005)    | 17(44641)    | 17(42976)    | 15(35858)   
+2    | 12(30094)    | 18(35439)    | 18(39190)    | 18(46267)    | 18(40971)    | 18(38403)    | 14(34695)   
+3    | 14(28631)    | 08(32893)    | 08(38625)    | 08(40190)    | 08(38512)    | 16(37613)    | 16(34504)   
+4    | 15(27814)    | 16(29884)    | 16(30093)    | 16(39035)    | 16(32802)    | 15(34520)    | 13(33886)   
+5    | 16(27519)    | 19(25682)    | 19(27547)    | 15(33734)    | 19(28687)    | 08(31688)    | 12(32836)   
+
+==================== Transformation 4 ====================
+Build total demand for each day of the week by mapping records, aggregating by day, and sorting from highest to lowest
+
+======================= Action 4 =========================
+Take the top 3 highest-demand days and show the peak hour in each day
+Action 4 Output -> Top 3 highest-demand days and their peak hour:
+1) Wednesday  -> Total Daily Trips = 510823   | Peak Hour = 17 | Trips = 51005
+2) Friday     -> Total Daily Trips = 478374   | Peak Hour = 17 | Trips = 42976
+3) Thursday   -> Total Daily Trips = 454900   | Peak Hour = 17 | Trips = 44641
+
+==================== Transformation 5 ====================
+Build rider-type demand summary by mapping records, aggregating totals, and computing average duration
+
+======================= Action 5 =========================
+Count rider segments and print total demand, bike-type demand, and average trip duration for each rider type
+Action 5 Output -> Number of rider segments found = 2
+casual     -> Total Trips = 456148   | Classic = 100961   | Electric = 355187   | Avg Duration = 16.71 min
+member     -> Total Trips = 2609339  | Classic = 777466   | Electric = 1831873  | Avg Duration = 10.64 min
+
+==================== Transformation 6 ====================
+Build weekend and weekday demand by rider type by mapping trip totals, aggregating them, and sorting by weekend demand share
+
+======================= Action 6 =========================
+Use take(1) to identify the rider type with the highest weekend demand share
+Action 6 Output -> Weekend vs weekday demand by rider type:
+member     -> Weekend Trips = 635723   | Weekday Trips = 1973616  | Weekend Share = 24.36%
+casual     -> Weekend Trips = 167742   | Weekday Trips = 288406   | Weekend Share = 36.77%
+
+Most Weekend-Oriented Rider Type -> casual with Weekend Share = 36.77%
+
+==================== Transformation 7 ====================
+Build electric-bike preference by rider type by aggregating electric and total trips, then computing electric usage share
+
+======================= Action 7 =========================
+Use takeOrdered to rank rider types by electric-bike usage share
+Action 7 Output -> Rider types ranked by electric-bike usage share:
+1) casual     -> Electric Trips = 355187   | Total Trips = 456148   | Electric Share = 77.87%
+2) member     -> Electric Trips = 1831873  | Total Trips = 2609339  | Electric Share = 70.20%
+
+==================== Transformation 8 ====================
+Build start-station demand by filtering valid station names, mapping records to (startStation, totalTrips), aggregating them, and sorting by total demand
+
+======================= Action 8 =========================
+Take the top 10 most-used start stations by total trip volume
+Action 8 Output -> Top 10 most-used start stations:
+1) W 21 St & 6 Ave                          -> Total Trips = 11903
+2) Lafayette St & E 8 St                    -> Total Trips = 10532
+3) W 31 St & 7 Ave                          -> Total Trips = 10029
+4) Broadway & E 14 St                       -> Total Trips = 9753
+5) 9 Ave & W 33 St                          -> Total Trips = 9667
+6) University Pl & E 14 St                  -> Total Trips = 9167
+7) E 17 St & Broadway                       -> Total Trips = 9053
+8) 6 Ave & W 33 St                          -> Total Trips = 9026
+9) Pier 61 at Chelsea Piers                 -> Total Trips = 8996
+10) Broadway & W 58 St                       -> Total Trips = 8743
+
+Most Used Start Station -> W 21 St & 6 Ave                          with Total Trips = 11903
+
+==================== Transformation 9 ====================
+Build end-station demand by filtering valid station names, mapping records to (endStation, totalTrips), aggregating them, and sorting by total demand
+
+======================= Action 9 =========================
+Take the top 10 most-used end stations by total trip volume
+Action 9 Output -> Top 10 most-used end stations:
+1) W 21 St & 6 Ave                          -> Total Trips = 11920
+2) Lafayette St & E 8 St                    -> Total Trips = 10424
+3) W 31 St & 7 Ave                          -> Total Trips = 10192
+4) Broadway & E 14 St                       -> Total Trips = 9808
+5) 9 Ave & W 33 St                          -> Total Trips = 9629
+6) Pier 61 at Chelsea Piers                 -> Total Trips = 9350
+7) University Pl & E 14 St                  -> Total Trips = 9306
+8) E 17 St & Broadway                       -> Total Trips = 9159
+9) Broadway & W 58 St                       -> Total Trips = 8840
+10) 6 Ave & W 33 St                          -> Total Trips = 8839
+
+Most Used End Station -> W 21 St & 6 Ave                          with Total Trips = 11920
+
+==================== Transformation 10 ====================
+Build route demand by mapping valid start-end station pairs, aggregating total trips per route, sorting by total demand, and extracting distinct station names
+
+======================= Action 10 =========================
+Take the top 10 most frequent routes and count the total number of distinct stations
+Action 10 Output -> Top 10 most frequent routes:
+1) Central Park S & 6 Ave         -> Central Park S & 6 Ave         | Total Trips = 971
+2) 7 Ave & Central Park South     -> 7 Ave & Central Park South     | Total Trips = 885
+3) 55 Ave & Center Blvd           -> Vernon Blvd & 50 Ave           | Total Trips = 720
+4) Vernon Blvd & 50 Ave           -> 55 Ave & Center Blvd           | Total Trips = 674
+5) Franklin St & Dupont St        -> Jackson Ave & 49 Ave           | Total Trips = 567
+6) Jackson Ave & 49 Ave           -> Franklin St & Dupont St        | Total Trips = 565
+7) S 2 St & Kent Ave              -> N 6 St & Bedford Ave           | Total Trips = 512
+8) S 4 St & Wythe Ave             -> N 6 St & Bedford Ave           | Total Trips = 497
+9) N 6 St & Bedford Ave           -> S 4 St & Wythe Ave             | Total Trips = 480
+10) N 6 St & Bedford Ave           -> S 2 St & Kent Ave              | Total Trips = 463
+
+Total Distinct Stations = 2249
+Most Frequent Route -> Central Park S & 6 Ave         -> Central Park S & 6 Ave         | Total Trips = 971

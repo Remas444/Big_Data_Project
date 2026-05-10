@@ -1,0 +1,80 @@
+# Stations with the Largest Imbalance Between Outgoing and Incoming Trips
+station_name,outgoing_trips,incoming_trips,net_difference,absolute_imbalance
+Eastern Pkwy & Kingston Ave,2984,2545,439,439
+Plaza St East & Flatbush Ave,3047,2642,405,405
+Eastern Pkwy & Washington Ave,1748,1360,388,388
+Pier 61 at Chelsea Piers,8996,9350,-354,354
+Mercer St & Bleecker St,5134,5453,-319,319
+Eastern Pkwy & Nostrand Ave,948,642,306,306
+Emerson Pl & Myrtle Ave,3562,3261,301,301
+W 44 St & 11 Ave,4897,4613,284,284
+7 Ave & Central Park South,7314,7036,278,278
+W 56 St & 10 Ave,3640,3362,278,278
+
+# Top Used Stations with Electric and Classic Bike Percentages
+start_station_name,total_electric_trips,total_classic_trips,total_trips,electric_share_percent,classic_share_percent
+W 21 St & 6 Ave,7786,4117,11903,65.41,34.59
+Lafayette St & E 8 St,6760,3772,10532,64.19,35.81
+W 31 St & 7 Ave,7506,2523,10029,74.84,25.16
+Broadway & E 14 St,6489,3264,9753,66.53,33.47
+9 Ave & W 33 St,7000,2667,9667,72.41,27.59
+University Pl & E 14 St,6127,3040,9167,66.84,33.16
+E 17 St & Broadway,5973,3080,9053,65.98,34.02
+6 Ave & W 33 St,5974,3052,9026,66.19,33.81
+Pier 61 at Chelsea Piers,6008,2988,8996,66.79,33.21
+Broadway & W 58 St,6475,2268,8743,74.06,25.94
+
+# Most Stable Demand Hours Across the Week
+hour,min_daily_demand,max_daily_demand,avg_daily_demand,demand_range
+4,979,2212,1499.43,1233
+3,675,3292,1579.29,2617
+5,1702,4444,3402.29,2742
+2,997,5054,2372.71,4057
+1,1597,7673,3774.71,6076
+22,8078,14882,12278.57,6804
+23,5678,12741,9115.29,7063
+0,3183,10332,6049.43,7149
+21,10394,18343,15034.86,7949
+10,15736,24245,20162.86,8509
+
+# Least Stable Demand Hours Across the Week
+hour,min_daily_demand,max_daily_demand,avg_daily_demand,demand_range
+8,10211,40190,29202.86,29979
+17,24493,51005,39518.14,26512
+18,21640,46267,35858.57,24627
+7,5782,26117,19106.14,20335
+12,16699,32836,23839.43,16137
+13,17930,33886,25272.86,15956
+19,17128,31735,26363.14,14607
+14,20743,34695,27298.57,13952
+11,15573,28839,21424.86,13266
+16,27519,39035,33064.29,11516
+
+# Most Used Start-to-End Routes During Peak Hours
+start_station_name,end_station_name,total_route_demand
+North Moore St & Greenwich St,Vesey St & Greenwich St,358
+Vernon Blvd & 50 Ave,55 Ave & Center Blvd,278
+Jackson Ave & 49 Ave,Franklin St & Dupont St,252
+North Moore St & Greenwich St,Vesey Pl & River Terrace,221
+N 6 St & Bedford Ave,S 4 St & Wythe Ave,189
+7 Ave & Central Park South,7 Ave & Central Park South,188
+Central Park S & 6 Ave,Central Park S & 6 Ave,187
+Norfolk St & Broome St,Henry St & Grand St,167
+Franklin St & Dupont St,Jackson Ave & 49 Ave,166
+Jackson Ave & 49 Ave,Eagle St & Manhattan Ave,158
+
+# Trip-Duration Statistics by Rider Type
+member_casual,total_trips,weighted_avg_duration_min,min_avg_duration_min,max_avg_duration_min,median_avg_duration_min,distinct_routes
+member,2609339,10.64,1.02,1414.22,8.02,497542
+casual,456148,16.71,1.02,1435.53,11.23,216003
+
+# Electric vs Classic Bike Preference by Day of Week
+day_of_week,total_classic_trips,total_electric_trips,total_trips,electric_share_percent,classic_share_percent
+1,103869,257462,361331,71.25,28.75
+2,119439,270562,390001,69.37,30.63
+3,125969,301955,427924,70.56,29.44
+4,147660,363163,510823,71.09,28.91
+5,130093,324807,454900,71.40,28.60
+6,130109,348265,478374,72.80,27.20
+7,121288,320846,442134,72.57,27.43
+
