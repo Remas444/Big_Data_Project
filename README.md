@@ -134,10 +134,10 @@ sbt run
 
 | File | Description |
 |------|-------------|
-| `01_DataPreprocessing.scala` | Cleans, integrates, reduces, and transforms the raw CSV data |
-| `02_RDDOperations.scala` | Demand analysis by hour, day, station, and rider type using RDDs |
-| `03_SQLOperations.scala` | Spark SQL queries for usage patterns and trip statistics |
-| `04_MachineLearning.scala` | Hourly demand prediction using Spark MLlib |
+| `DataPreprocessing.scala` | Cleans, integrates, reduces, and transforms the raw CSV data |
+| `RDDOperations.scala` | Demand analysis by hour, day, station, and rider type using RDDs |
+| `SQLOperations.scala` | Spark SQL queries for usage patterns and trip statistics |
+| `MachineLearning.scala` | Hourly demand prediction using Spark MLlib |
 
 ---
 
@@ -146,10 +146,10 @@ sbt run
 ```
 citibike-bigdata/
 ├── src/main/scala/
-│   ├── 01_DataPreprocessing.scala
-│   ├── 02_RDDOperations.scala
-│   ├── 03_SQLOperations.scala
-│   └── 04_MachineLearning.scala
+│   ├── DataPreprocessing.scala
+│   ├── RDDOperations.scala
+│   ├── SQLOperations.scala
+│   └── MachineLearning.scala
 ├── data/
 │   └── raw/
 ├── build.sbt
